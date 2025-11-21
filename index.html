@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Ular Tangga Teka-Teki 80 Kolom</title>
+<style>
+    body {
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #2b1055, #7597de);
+        color: white;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    h1 {
+        margin-top: 20px;
+        text-shadow: 0 3px 5px rgba(0, 0, 0, .4);
+    }
+
+    #board {
+        display: grid;
+        grid-template-columns: repeat(10, 60px);
+        grid-template-rows: repeat(8, 60px);
+        gap: 5px;
+        margin: 30px auto;
+        background: rgba(255,255,255,0.1);
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .cell {
+        width: 60px;
+        height: 60px;
+        background: rgba(255,255,255,.15);
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 14px;
+        position: relative;
+        cursor: pointer;
+    }
+
+    .player {
+        background: gold;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        border: 2px solid white;
+    }
+
+    .snake { background: rgba(255,0,0,0.4); }
+    .ladder { background: rgba(0,255,0,0.4); }
+    .heal { background: rgba(0,200,255,0.4); }
+
+    #controls {
+        margin: 20px;
+        text-align: center;
+    }
+
+    #diceBtn {
+        padding: 10px 25px;
+        background: #ffce00;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        transition: .2s;
+    }
+    #diceBtn:hover {
+        background: #ffea63;
+    }
+
+    #questionBox {
+        width: 350px;
+        background: rgba(0,0,0,0.7);
+        padding: 20px;
+        border-radius: 10px;
+        display: none;
+    }
+
+    input[type=text] {
+        width: 100%;
+        padding: 8px;
+        border-radius: 5px;
+        border: none;
+    }
+
+    button.answerBtn {
+        margin-top: 10px;
+        padding: 8px 20px;
+        background: #00d18b;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+</style>
+</head>
+<body>
+
+<h1>Permainan Ular Tangga Teka-Teki</h1>
+
+<div id="stats">Posisi: <span id="pos">1</span> | Nyawa: <span id="life">100</span></div>
+
+<div id="board"></div>
+
+<div id="controls">
+    <button id="diceBtn">🎲 Lempar Dadu</button>
+    <p id="diceResult"></p>
+</div>
+
+<div id="questionBox">
+    <p id="questionText"></p>
+    <input type="text" id="answerInput" placeholder="Jawaban...">
+    <button class="answerBtn" onclick="submitAnswer()">Jawab</button>
+</div>
+
+<script>
+// ===================================
+// DATA
+// ===================================
+let playerPos = 1;
+let life = 100;
+
+const questions = [
+    { q: "Berapakah 5 + 7?", a: "12" },
+    { q: "Ibu kota Indonesia?", a: "jakarta" },
+    { q: "Bahasa Inggris dari 'merah'?", a: "red" },
+    { q: "7 × 8 = ?", a: "56" },
+    { q: "Gunung tertinggi di Indonesia?", a: "puncak jaya" },
+    { q: "Siapa penemu lampu pijar?", a: "thomas edison" },
+    { q: "Berapakah hasil dari 15 dibagi 3?", a: "5" },
+    { q: "Planet terbesar di tata surya?", a: "jupiter" },
+    { q: "Simbol kimia air?", a: "h2o" },
+    { q: "Benda apa yang bisa terbang tanpa sayap?", a: "waktu" },
+    { q: "Apa lawan kata 'besar'?", a: "kecil" },
+    { q: "Berapakah akar kuadrat dari 81?", a: "9" },
+    { q: "Siapa presiden pertama Indonesia?", a: "soekarno" },
+    { q: "Apa ibu kota Jepang?", a: "tokyo" },
+    { q: "Hewan apa yang dikenal sebagai raja hutan?", a: "singa" },
+    { q: "Apa warna bendera Indonesia?", a: "merah putih" },
+    { q: "Berapakah jumlah hari dalam seminggu?", a: "7" },
+    { q: "Apa alat musik tradisional dari Jawa Barat?", a: "angklung" },
+    { q: "Apa nama samudra terbesar di dunia?", a: "pasifik" },
+    { q: "Apa nama pulau terbesar di Indonesia?", a: "kalimantan" }
+];
+
+// random ular, tangga, heal
+let snakes = {};
+let ladders = {};
+let heals = {};
+
+function randomizeSpecialTiles() {
+    let snakeCount = 5;
+    let ladderCount = 5;
+    let healCount = 6;
+
+    while (snakeCount > 0) {
+        let pos = Math.floor(Math.random()*78) + 2;
+        if (!snakes[pos] && pos > 10) {
+            snakes[pos] = pos - Math.floor(Math.random()*10 + 5);
+            snakeCount--;
+        }
+    }
+
+    while (ladderCount > 0) {
+        let pos = Math.floor(Math.random()*70) + 2;
+        if (!ladders[pos] && pos < 70) {
+            ladders[pos] = pos + Math.floor(Math.random()*10 + 5);
+            ladderCount--;
+        }
+    }
+
+    while (healCount > 0) {
+        let pos = Math.floor(Math.random()*78) + 2;
+        if (!heals[pos] && !snakes[pos] && !ladders[pos]) {
+            heals[pos] = true;
+            healCount--;
+        }
+    }
+}
+
+
+// ===================================
+// MEMBANGUN PAPAN
+// ===================================
+function buildBoard() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+
+    for (let i = 80; i >= 1; i--) {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.dataset.pos = i;
+        cell.innerHTML = i;
+
+        if (snakes[i]) cell.classList.add("snake");
+        if (ladders[i]) cell.classList.add("ladder");
+        if (heals[i]) cell.classList.add("heal");
+
+        if (i === playerPos) {
+            let marker = document.createElement("div");
+            marker.classList.add("player");
+            cell.appendChild(marker);
+        }
+
+        board.appendChild(cell);
+    }
+}
+
+randomizeSpecialTiles();
+buildBoard();
+
+// ===================================
+// GAME MECHANIC
+// ===================================
+function rollDice() {
+    if (life <= 0) return alert("Game Over!");
+    const roll = Math.floor(Math.random()*6) + 1;
+    document.getElementById("diceResult").innerHTML = "Dadu: " + roll;
+
+    let target = playerPos + roll;
+    if (target > 80) target = 80;
+
+    askQuestion(target, false);
+}
+
+document.getElementById("diceBtn").onclick = rollDice;
+
+let currentQuestion = null;
+let targetTile = null;
+let isHealQuestion = false;
+
+function askQuestion(tile, isHeal) {
+    currentQuestion = questions[Math.floor(Math.random()*questions.length)];
+    targetTile = tile;
+    isHealQuestion = isHeal;
+
+    document.getElementById("questionText").innerHTML = currentQuestion.q;
+    document.getElementById("questionBox").style.display = "block";
+}
+
+function submitAnswer() {
+    let ans = document.getElementById("answerInput").value.toLowerCase().trim();
+    document.getElementById("answerInput").value = "";
+
+    if (ans === currentQuestion.a) {
+        if (isHealQuestion) {
+            life += 5;
+            alert("Jawaban benar! +5 nyawa");
+        } else {
+            playerPos = targetTile;
+            checkSpecialTiles();
+        }
+    } else {
+        life -= 5;
+        alert("Jawaban salah! -5 nyawa");
+    }
+
+    updateStats();
+    buildBoard();
+    document.getElementById("questionBox").style.display = "none";
+}
+
+function checkSpecialTiles() {
+    if (snakes[playerPos]) {
+        alert("Ular! Turun ke " + snakes[playerPos]);
+        playerPos = snakes[playerPos];
+    }
+    if (ladders[playerPos]) {
+        alert("Tangga! Naik ke " + ladders[playerPos]);
+        playerPos = ladders[playerPos];
+    }
+    if (heals[playerPos]) {
+        alert("Area penyembuhan! Jawab pertanyaan untuk +5 nyawa");
+        askQuestion(playerPos, true);
+    }
+}
+
+function updateStats() {
+    document.getElementById("pos").innerHTML = playerPos;
+    document.getElementById("life").innerHTML = life;
+}
+
+</script>
+
+</body>
+</html>
